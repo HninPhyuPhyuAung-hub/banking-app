@@ -48,6 +48,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Build image
+        env:
+          REPOSITORY: ${{ matrix.repository }}
+          DOCKERFILE: ${{ matrix.dockerfile }}
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -f "$DOCKERFILE" -t "$REPOSITORY:$TAG" -t "$REPOSITORY:latest" .
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -58,15 +66,16 @@ jobs:
         id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, tag and push
+      - name: Tag and push image
         env:
           REGISTRY: ${{ steps.ecr.outputs.registry }}
           REPOSITORY: ${{ matrix.repository }}
           TAG: ${{ github.sha }}
         run: |
-          docker build -f ${{ matrix.dockerfile }} -t $REGISTRY/$REPOSITORY:$TAG -t $REGISTRY/$REPOSITORY:latest .
-          docker push $REGISTRY/$REPOSITORY:$TAG
-          docker push $REGISTRY/$REPOSITORY:latest
+          docker tag "$REPOSITORY:$TAG" "$REGISTRY/$REPOSITORY:$TAG"
+          docker tag "$REPOSITORY:latest" "$REGISTRY/$REPOSITORY:latest"
+          docker push "$REGISTRY/$REPOSITORY:$TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
 
   # CD (deploy to ECS) - enable once the ECS cluster and services exist.
   # deploy:
