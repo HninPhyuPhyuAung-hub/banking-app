@@ -16,15 +16,15 @@
 
 ECR repositories, the OIDC identity provider, RDS, ECS clusters/services and networking are all provisioned by [`banking-infra`](https://github.com/HninPhyuPhyuAung-hub/banking-infra); this repository does not create any of that. Deploy that stack first, then:
 
-1. The app ECR-push role is already provisioned by the infrastructure bootstrap (see `banking-infra/infra/s3/notes.md`). Set the app repository's `AWS_ROLE_ARN` secret to `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push`. The role trust must allow audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main`. This workflow only assumes it from `main`; pull-request runs do not assume it.
+1. The app ECR-push role is already provisioned by the infrastructure bootstrap (see `banking-infra/infra/s3/notes.md`). Set the app repository's `AWS_ROLE_ARN` secret to `arn:aws:iam::<account-id>:role/github-actions-banking-app-ecr-push`. The role trust must allow audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main`. This workflow only assumes it from `main`; pull-request runs do not assume it.
 2. The existing role permits ECR login and image push to `banking-api` and `banking-dashboard`. The `deploy` job in this workflow reuses the same role for ECS rollout, so its policy must also be extended (manually, in IAM — this role is bootstrap-managed, not Terraform-owned) with a statement scoped to just the two application services:
    ```json
    {
      "Effect": "Allow",
      "Action": ["ecs:UpdateService", "ecs:DescribeServices"],
      "Resource": [
-       "arn:aws:ecs:ap-southeast-1:439475769687:service/backend-cluster/banking-api",
-       "arn:aws:ecs:ap-southeast-1:439475769687:service/frontend-cluster/banking-dashboard"
+       "arn:aws:ecs:ap-southeast-1:<account-id>:service/backend-cluster/banking-api",
+       "arn:aws:ecs:ap-southeast-1:<account-id>:service/frontend-cluster/banking-dashboard"
      ]
    }
    ```
@@ -36,7 +36,7 @@ ECR repositories, the OIDC identity provider, RDS, ECS clusters/services and net
 
 | Name | Value |
 |---|---|
-| `AWS_ROLE_ARN` | `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push` |
+| `AWS_ROLE_ARN` | `arn:aws:iam::<account-id>:role/github-actions-banking-app-ecr-push` |
 
 **Variables** (same page, Variables tab)
 
@@ -92,7 +92,7 @@ ECR repositories, the OIDC identity provider, RDS, ECS clusters/services and net
 
 | Name | Type | Example | Used by |
 |---|---|---|---|
-| `AWS_ROLE_ARN` | Secret | `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push` | Login to AWS |
+| `AWS_ROLE_ARN` | Secret | `arn:aws:iam::<account-id>:role/github-actions-banking-app-ecr-push` | Login to AWS |
 | `AWS_REGION` | Variable | `ap-southeast-1` | Login to AWS, ECR |
 | `ECR_API_REPOSITORY` | Variable | `banking-api` | API image push |
 | `ECR_WEB_REPOSITORY` | Variable | `banking-dashboard` | UI image push |
