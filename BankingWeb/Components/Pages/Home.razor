@@ -28,6 +28,36 @@ else
 {
     <div class="layout">
         <div class="accounts">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="label">Accounts</span>
+                <button class="btn btn-sm btn-outline-primary" @onclick="ToggleCreate">
+                    @(creating ? "Cancel" : "+ New account")
+                </button>
+            </div>
+
+            @if (creating)
+            {
+                <div class="account-card" style="cursor: default;">
+                    <div class="details w-100">
+                        <input class="form-control form-control-sm mb-2" placeholder="Owner name"
+                               @bind="newOwner" @bind:event="oninput" />
+                        <div class="input-group input-group-sm mb-2">
+                            <span class="input-group-text">$</span>
+                            <input class="form-control" type="number" step="0.01" min="0" placeholder="Initial balance (optional)"
+                                   @bind="newBalance" @bind:event="oninput" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(createError))
+                        {
+                            <div class="text-danger small mb-2">@createError</div>
+                        }
+                        <button class="btn btn-sm btn-success" disabled="@(creatingBusy || string.IsNullOrWhiteSpace(newOwner))"
+                                @onclick="CreateAccountAsync">
+                            Create
+                        </button>
+                    </div>
+                </div>
+            }
+
             @foreach (var a in accounts)
             {
                 <div class="account-card @(selected?.Id == a.Id ? "active" : "")" @onclick="() => Select(a)">
@@ -94,6 +124,12 @@ else
     private string? error;
     private string? info;
 
+    private bool creating;
+    private string newOwner = "";
+    private decimal newBalance;
+    private bool creatingBusy;
+    private string? createError;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
@@ -118,6 +154,31 @@ else
         error = null;
         info = null;
         amount = 0;
+    }
+
+    private void ToggleCreate()
+    {
+        creating = !creating;
+        createError = null;
+        newOwner = "";
+        newBalance = 0;
+    }
+
+    private async Task CreateAccountAsync()
+    {
+        createError = null;
+        creatingBusy = true;
+        var r = await Api.CreateAccountAsync(newOwner, newBalance);
+        if (r.Ok)
+        {
+            creating = false;
+            await LoadAsync();
+            selected = accounts.FirstOrDefault(a => a.Id == r.Value!.Id);
+            error = null;
+            info = "Account created.";
+        }
+        else createError = r.Error;
+        creatingBusy = false;
     }
 
     private async Task RefreshAsync()

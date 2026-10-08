@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 namespace BankingWeb.Services;
 
 public record AmountRequest(decimal Amount);
+public record CreateAccountRequest(string Owner, decimal InitialBalance);
 public record AccountResponse(int Id, string Owner, decimal Balance);
 public record BalanceResponse(int AccountId, decimal Balance);
 
@@ -16,6 +17,9 @@ public class BankingApiClient(HttpClient http)
 {
     public Task<ApiResult<List<AccountResponse>>> ListAccountsAsync() =>
         SendAsync<List<AccountResponse>>(() => http.GetAsync("api/accounts"));
+
+    public Task<ApiResult<AccountResponse>> CreateAccountAsync(string owner, decimal initialBalance) =>
+        SendAsync<AccountResponse>(() => http.PostAsJsonAsync("api/accounts", new CreateAccountRequest(owner, initialBalance)));
 
     public Task<ApiResult<BalanceResponse>> GetBalanceAsync(int id) =>
         SendAsync<BalanceResponse>(() => http.GetAsync($"api/accounts/{id}/balance"));

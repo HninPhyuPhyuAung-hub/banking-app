@@ -26,5 +26,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+// Used by the frontend ALB's target group health check.
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 app.Run();
