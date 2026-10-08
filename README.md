@@ -65,6 +65,6 @@ The GitHub Actions workflow in `.github/workflows/ci-cd.yaml` runs on every push
 
 1. **Build and test** the solution.
 2. **Build and push** both Docker images to Amazon ECR, tagged with the commit SHA and `latest` (main only).
-3. **Deploy** to ECS (prepared but commented out in the workflow until the cluster exists).
+3. **Deploy** to ECS: force a new deployment of the API and UI services so each picks up the `latest` image (main only).
 
 See [NOTES.md](NOTES.md) for prerequisites and the repository settings the pipeline needs.

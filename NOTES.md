@@ -19,12 +19,22 @@
 1. Create the ECR repositories:
    ```
    aws ecr create-repository --repository-name banking-api --region <region>
-   aws ecr create-repository --repository-name banking-web --region <region>
+   aws ecr create-repository --repository-name banking-dashboard --region <region>
    ```
 2. Add GitHub as an OIDC identity provider in IAM (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`).
-3. Create an IAM role trusted by your repository (`repo:<owner>/<repo>:ref:refs/heads/main`) with permissions for:
-   - ECR push: `ecr:GetAuthorizationToken`, `ecr:BatchCheckLayerAvailability`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`, `ecr:PutImage`
-   - ECS deploy: `ecs:UpdateService`, `ecs:DescribeServices`
+3. The app ECR-push role is already provisioned by the infrastructure bootstrap (see `banking-infra/infra/s3/notes.md`). Set the app repository's `AWS_ROLE_ARN` secret to `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push`. The role trust must allow audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main`. This workflow only assumes it from `main`; pull-request runs do not assume it.
+4. The existing role permits ECR login and image push to `banking-api` and `banking-dashboard`. The `deploy` job in this workflow reuses the same role for ECS rollout, so its policy must also be extended (manually, in IAM — this role is bootstrap-managed, not Terraform-owned) with a statement scoped to just the two application services:
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": ["ecs:UpdateService", "ecs:DescribeServices"],
+     "Resource": [
+       "arn:aws:ecs:ap-southeast-1:439475769687:service/backend-cluster/banking-api",
+       "arn:aws:ecs:ap-southeast-1:439475769687:service/frontend-cluster/banking-dashboard"
+     ]
+   }
+   ```
+   It still grants no Terraform state access or repository management.
 
 ## GitHub repository settings
 
@@ -32,7 +42,7 @@
 
 | Name | Value |
 |---|---|
-| `AWS_ROLE_ARN` | ARN of the IAM role above |
+| `AWS_ROLE_ARN` | `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push` |
 
 **Variables** (same page, Variables tab)
 
@@ -40,10 +50,11 @@
 |---|---|---|
 | `AWS_REGION` | for example `ap-southeast-1` | Yes |
 | `ECR_API_REPOSITORY` | ECR repository name of the API, for example `banking-api` | Yes |
-| `ECR_WEB_REPOSITORY` | ECR repository name of the UI, for example `banking-web` | Yes |
-| `ECS_CLUSTER` | ECS cluster name | When the deploy job is enabled |
-| `ECS_API_SERVICE` | ECS service name of the API | With `ECS_CLUSTER` |
-| `ECS_WEB_SERVICE` | ECS service name of the UI | Optional |
+| `ECR_WEB_REPOSITORY` | ECR repository name of the UI, `banking-dashboard` | Yes |
+| `ECS_API_CLUSTER` | ECS cluster name of the API, `backend-cluster` | Yes |
+| `ECS_API_SERVICE` | ECS service name of the API, `banking-api` | Yes |
+| `ECS_WEB_CLUSTER` | ECS cluster name of the UI, `frontend-cluster` | Yes |
+| `ECS_WEB_SERVICE` | ECS service name of the UI, `banking-dashboard` | Yes |
 
 ## ECS task configuration
 
@@ -80,6 +91,7 @@
 | UI says it cannot reach the API | `BankingApi__BaseUrl` is wrong or the security group blocks port 8080 |
 | ECS tasks keep restarting | Check the CloudWatch log group of the task and the `/health` target group check |
 | GitHub Action fails at AWS login | Role trust policy does not match the repository or branch |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | Check that the app repository secret `AWS_ROLE_ARN` exactly matches the app ECR-push role ARN above. In IAM, verify the role still trusts provider `token.actions.githubusercontent.com` with audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main` |
 
 ## Variables reference
 
@@ -87,13 +99,14 @@
 
 | Name | Type | Example | Used by |
 |---|---|---|---|
-| `AWS_ROLE_ARN` | Secret | `arn:aws:iam::123456789012:role/github-actions-ecr` | Login to AWS |
+| `AWS_ROLE_ARN` | Secret | `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push` | Login to AWS |
 | `AWS_REGION` | Variable | `ap-southeast-1` | Login to AWS, ECR |
 | `ECR_API_REPOSITORY` | Variable | `banking-api` | API image push |
-| `ECR_WEB_REPOSITORY` | Variable | `banking-web` | UI image push |
-| `ECS_CLUSTER` | Variable | `banking-cluster` | Deploy job (when enabled) |
-| `ECS_API_SERVICE` | Variable | `banking-api-service` | Deploy job (when enabled) |
-| `ECS_WEB_SERVICE` | Variable | `banking-web-service` | Deploy job (when enabled) |
+| `ECR_WEB_REPOSITORY` | Variable | `banking-dashboard` | UI image push |
+| `ECS_API_CLUSTER` | Variable | `backend-cluster` | API deploy job |
+| `ECS_API_SERVICE` | Variable | `banking-api` | API deploy job |
+| `ECS_WEB_CLUSTER` | Variable | `frontend-cluster` | UI deploy job |
+| `ECS_WEB_SERVICE` | Variable | `banking-dashboard` | UI deploy job |
 
 Use a **secret** for anything sensitive. Names, regions and repository names are not sensitive, so they are plain **variables**.
 
