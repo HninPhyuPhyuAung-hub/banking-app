@@ -2,6 +2,26 @@
 
 A small banking system: a REST API (ASP.NET Core, .NET 10, PostgreSQL) and a simple Blazor UI.
 
+## Problem statement
+
+Ship a small banking application to AWS with a fully automated pipeline — no long-lived AWS
+credentials stored in GitHub, and no coupling between the application's release cycle and the
+underlying infrastructure's lifecycle. This repository owns only the application code, its
+containers, and the pipeline that builds, tests and deploys them. Networking, the container
+registry, the database, container orchestration, load balancers, DNS, and the private certificate
+authority are all owned and versioned separately in
+[`banking-infra`](https://github.com/HninPhyuPhyuAung-hub/banking-infra), deployed independently
+via Terraform.
+
+## Current status
+
+The application is deployed and reachable at the private domain `dashboard.dev.banking.internal`
+(the API is at `api.dev.banking.internal`, over HTTPS signed by the environment's private CA).
+It lists accounts, creates new ones, and deposits/withdraws against them, backed by PostgreSQL on
+RDS via a Secrets Manager-sourced connection string:
+
+![Banking dashboard](assets/banking.png)
+
 ## Features
 
 - Get the current balance of an account
@@ -61,10 +81,21 @@ Stop everything with `docker compose down`.
 
 ## CI/CD
 
-The GitHub Actions workflow in `.github/workflows/ci-cd.yaml` runs on every push and pull request to `main`:
+The GitHub Actions workflow in `.github/workflows/ci-cd.yaml` triggers on pushes and pull requests
+to `main` that touch `BankingApi/**`, `BankingWeb/**`, `BankingApi.slnx`, or the workflow file
+itself, plus manual runs via `workflow_dispatch`.
 
-1. **Build and test** the solution.
-2. **Build and push** both Docker images to Amazon ECR, tagged with the commit SHA and `latest` (main only).
-3. **Deploy** to ECS: force a new deployment of the API and UI services so each picks up the `latest` image (main only).
+1. **Build and test** — restores, builds and runs tests for the solution. Nothing else runs if
+   this fails.
+2. **Build and push** (`api`, `web` in parallel) — only after `Build and test` succeeds, and only
+   outside pull requests. Builds each Docker image, authenticates to AWS via GitHub OIDC (no
+   stored AWS keys), and pushes to ECR tagged with the commit SHA and `latest`.
+3. **Deploy to ECS** (`api`, `web` in parallel) — only after the matching image push succeeds, and
+   only on `main`. Forces a new ECS deployment for that service and waits for it to stabilize
+   before the run is marked successful.
+
+A successful run looks like this:
+
+![CI/CD pipeline](assets/pipeline.png)
 
 See [NOTES.md](NOTES.md) for prerequisites and the repository settings the pipeline needs.

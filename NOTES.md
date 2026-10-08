@@ -9,21 +9,15 @@
 
 ### AWS
 - An AWS account and the AWS CLI (`aws configure`)
-- Two ECR repositories: `banking-api` and `banking-web`
-- A PostgreSQL database (for example RDS) reachable from the ECS tasks
-- An ECS cluster with a service for the API (and one for the UI, optional)
-- An IAM role that GitHub Actions can assume through OIDC
+- Infrastructure already deployed by the [`banking-infra`](https://github.com/HninPhyuPhyuAung-hub/banking-infra) Terraform repository — VPCs, ECR repositories, RDS, ECS clusters/services, ALBs, Route 53 and the private CA. Make sure that stack has already been applied before continuing here.
+- An IAM role that GitHub Actions can assume through OIDC (also provisioned by `banking-infra`'s bootstrap — see below)
 
 ## One-time AWS setup
 
-1. Create the ECR repositories:
-   ```
-   aws ecr create-repository --repository-name banking-api --region <region>
-   aws ecr create-repository --repository-name banking-dashboard --region <region>
-   ```
-2. Add GitHub as an OIDC identity provider in IAM (`token.actions.githubusercontent.com`, audience `sts.amazonaws.com`).
-3. The app ECR-push role is already provisioned by the infrastructure bootstrap (see `banking-infra/infra/s3/notes.md`). Set the app repository's `AWS_ROLE_ARN` secret to `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push`. The role trust must allow audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main`. This workflow only assumes it from `main`; pull-request runs do not assume it.
-4. The existing role permits ECR login and image push to `banking-api` and `banking-dashboard`. The `deploy` job in this workflow reuses the same role for ECS rollout, so its policy must also be extended (manually, in IAM — this role is bootstrap-managed, not Terraform-owned) with a statement scoped to just the two application services:
+ECR repositories, the OIDC identity provider, RDS, ECS clusters/services and networking are all provisioned by [`banking-infra`](https://github.com/HninPhyuPhyuAung-hub/banking-infra); this repository does not create any of that. Deploy that stack first, then:
+
+1. The app ECR-push role is already provisioned by the infrastructure bootstrap (see `banking-infra/infra/s3/notes.md`). Set the app repository's `AWS_ROLE_ARN` secret to `arn:aws:iam::439475769687:role/github-actions-banking-app-ecr-push`. The role trust must allow audience `sts.amazonaws.com` and subject `repo:HninPhyuPhyuAung-hub/banking-app:ref:refs/heads/main`. This workflow only assumes it from `main`; pull-request runs do not assume it.
+2. The existing role permits ECR login and image push to `banking-api` and `banking-dashboard`. The `deploy` job in this workflow reuses the same role for ECS rollout, so its policy must also be extended (manually, in IAM — this role is bootstrap-managed, not Terraform-owned) with a statement scoped to just the two application services:
    ```json
    {
      "Effect": "Allow",
@@ -80,7 +74,6 @@
 - .NET container images listen on port 8080 by default.
 - Swagger is enabled in every environment. Disable it for production if you do not want it public.
 - Do not commit real connection strings or passwords. `appsettings.json` only contains a placeholder.
-- Do not use "GIC" in the public repository name.
 
 ## Troubleshooting
 

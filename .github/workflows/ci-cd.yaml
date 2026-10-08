@@ -3,8 +3,18 @@ name: CI/CD
 on:
   push:
     branches: [main]
+    paths:
+      - "BankingApi/**"
+      - "BankingWeb/**"
+      - "BankingApi.slnx"
+      - ".github/workflows/ci-cd.yaml"
   pull_request:
     branches: [main]
+    paths:
+      - "BankingApi/**"
+      - "BankingWeb/**"
+      - "BankingApi.slnx"
+      - ".github/workflows/ci-cd.yaml"
   workflow_dispatch:
 
 permissions:
