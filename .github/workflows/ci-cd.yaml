@@ -1,0 +1,91 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore BankingApi.slnx
+
+      - name: Build
+        run: dotnet build BankingApi.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test BankingApi.slnx -c Release --no-build --verbosity normal
+
+  docker:
+    name: Build and push ${{ matrix.name }}
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - name: api
+            repository: ${{ vars.ECR_API_REPOSITORY }}
+            dockerfile: BankingApi/Dockerfile
+          - name: web
+            repository: ${{ vars.ECR_WEB_REPOSITORY }}
+            dockerfile: BankingWeb/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag and push
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ matrix.repository }}
+          TAG: ${{ github.sha }}
+        run: |
+          docker build -f ${{ matrix.dockerfile }} -t $REGISTRY/$REPOSITORY:$TAG -t $REGISTRY/$REPOSITORY:latest .
+          docker push $REGISTRY/$REPOSITORY:$TAG
+          docker push $REGISTRY/$REPOSITORY:latest
+
+  # CD (deploy to ECS) - enable once the ECS cluster and services exist.
+  # deploy:
+  #   name: Deploy to ECS
+  #   needs: docker
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Configure AWS credentials (OIDC)
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+  #         aws-region: ${{ vars.AWS_REGION }}
+  #
+  #     - name: Roll out API service
+  #       run: aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service "${{ vars.ECS_API_SERVICE }}" --force-new-deployment
+  #
+  #     - name: Roll out web service
+  #       run: aws ecs update-service --cluster "${{ vars.ECS_CLUSTER }}" --service "${{ vars.ECS_WEB_SERVICE }}" --force-new-deployment
+  #
+  #     - name: Wait for API service to stabilize
+  #       run: aws ecs wait services-stable --cluster "${{ vars.ECS_CLUSTER }}" --services "${{ vars.ECS_API_SERVICE }}"

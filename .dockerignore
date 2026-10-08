@@ -1,0 +1,8 @@
+**/bin
+**/obj
+**/.vs
+**/*.user
+.git
+infra
+docs
+seed.sql

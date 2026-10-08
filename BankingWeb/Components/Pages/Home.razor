@@ -1,0 +1,148 @@
+@page "/"
+@using BankingWeb.Services
+@inject BankingApiClient Api
+
+<PageTitle>My Bank</PageTitle>
+
+<div class="hero">
+    <div>
+        <h1>My Bank</h1>
+        <p>Select an account to view its balance, deposit or withdraw funds.</p>
+    </div>
+    <div class="total">
+        <span>Total holdings</span>
+        <strong>@accounts.Sum(a => a.Balance).ToString("C")</strong>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(error))
+{
+    <div class="alert alert-danger">@error</div>
+}
+
+@if (loading)
+{
+    <p>Loading accounts...</p>
+}
+else
+{
+    <div class="layout">
+        <div class="accounts">
+            @foreach (var a in accounts)
+            {
+                <div class="account-card @(selected?.Id == a.Id ? "active" : "")" @onclick="() => Select(a)">
+                    <div class="avatar">@a.Owner[0]</div>
+                    <div class="details">
+                        <div class="owner">@a.Owner</div>
+                        <div class="acc-id">Account #@a.Id</div>
+                    </div>
+                    <div class="acc-balance">@a.Balance.ToString("C")</div>
+                </div>
+            }
+        </div>
+
+        <div class="panel">
+            @if (selected is null)
+            {
+                <div class="empty">Select an account to get started</div>
+            }
+            else
+            {
+                <h4>@selected.Owner <small class="text-muted">#@selected.Id</small></h4>
+                <div class="label">Available balance</div>
+                <div class="big-balance">@selected.Balance.ToString("C")</div>
+
+                @if (!string.IsNullOrEmpty(info))
+                {
+                    <div class="alert alert-success py-2">@info</div>
+                }
+
+                <div class="input-group mb-2">
+                    <span class="input-group-text">$</span>
+                    <input class="form-control" type="number" step="0.01" min="0" placeholder="Amount" @bind="amount" @bind:event="oninput" />
+                </div>
+
+                <div class="quick mb-3">
+                    @foreach (var q in quickAmounts)
+                    {
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => amount = q">@q.ToString("C0")</button>
+                    }
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success flex-fill" disabled="@(busy || amount <= 0)" @onclick="DepositAsync">Deposit</button>
+                    <button class="btn btn-danger flex-fill" disabled="@(busy || amount <= 0 || amount > selected.Balance)" @onclick="WithdrawAsync">Withdraw</button>
+                    <button class="btn btn-outline-secondary" disabled="@busy" @onclick="RefreshAsync">Refresh</button>
+                </div>
+                @if (amount > selected.Balance)
+                {
+                    <div class="text-danger small mt-2">Amount exceeds the available balance.</div>
+                }
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly decimal[] quickAmounts = [50, 100, 500, 1000];
+
+    private List<AccountResponse> accounts = [];
+    private AccountResponse? selected;
+    private decimal amount;
+    private bool loading = true;
+    private bool busy;
+    private string? error;
+    private string? info;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.ListAccountsAsync();
+        if (r.Ok)
+        {
+            accounts = r.Value ?? [];
+            if (selected is not null)
+                selected = accounts.FirstOrDefault(a => a.Id == selected.Id);
+        }
+        else error = r.Error;
+    }
+
+    private void Select(AccountResponse a)
+    {
+        selected = a;
+        error = null;
+        info = null;
+        amount = 0;
+    }
+
+    private async Task RefreshAsync()
+    {
+        error = null;
+        await LoadAsync();
+    }
+
+    private Task DepositAsync() => RunAsync(() => Api.DepositAsync(selected!.Id, amount), "Deposit successful.");
+
+    private Task WithdrawAsync() => RunAsync(() => Api.WithdrawAsync(selected!.Id, amount), "Withdrawal successful.");
+
+    private async Task RunAsync(Func<Task<ApiResult<BalanceResponse>>> action, string success)
+    {
+        error = null;
+        info = null;
+        busy = true;
+        var r = await action();
+        if (r.Ok)
+        {
+            info = success;
+            amount = 0;
+            await LoadAsync();
+        }
+        else error = r.Error;
+        busy = false;
+    }
+}

@@ -1,0 +1,101 @@
+.hero {
+    background: linear-gradient(135deg, #1b6ec2, #5b2bb5);
+    color: #fff;
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.hero h1 { margin: 0; }
+.hero p { margin: .25rem 0 0; opacity: .9; }
+.total { text-align: right; }
+.total span { display: block; opacity: .85; font-size: .85rem; }
+.total strong { font-size: 1.75rem; }
+
+.layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+@media (max-width: 800px) {
+    .layout { grid-template-columns: 1fr; }
+}
+
+.accounts {
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.account-card {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    background: #fff;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.account-card:hover {
+    transform: translateX(3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .15);
+}
+
+.account-card.active {
+    border-color: #5b2bb5;
+    background: #f5f0ff;
+}
+
+.avatar {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #5b2bb5;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+
+.details { flex: 1; }
+.owner { font-weight: 600; }
+.acc-id { color: #6c757d; font-size: .85rem; }
+.acc-balance { font-weight: 700; }
+
+.panel {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
+    position: sticky;
+    top: 1rem;
+}
+
+.empty {
+    color: #6c757d;
+    text-align: center;
+    padding: 3rem 0;
+}
+
+.label { color: #6c757d; font-size: .85rem; }
+
+.big-balance {
+    font-size: 2.25rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.quick { display: flex; gap: .5rem; flex-wrap: wrap; }
