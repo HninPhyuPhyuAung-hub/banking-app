@@ -2,7 +2,7 @@
 
 A small banking system: a REST API (ASP.NET Core, .NET 10, PostgreSQL) and a simple Blazor UI.
 
-## Problem statement
+## Scope
 
 Ship a small banking application to AWS with a fully automated pipeline — no long-lived AWS
 credentials stored in GitHub, and no coupling between the application's release cycle and the
