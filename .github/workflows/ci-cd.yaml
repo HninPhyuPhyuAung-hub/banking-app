@@ -17,6 +17,10 @@ on:
       - ".github/workflows/ci-cd.yaml"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   id-token: write
   contents: read
@@ -32,6 +36,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
       - name: Restore
         run: dotnet restore BankingApi.slnx
 
@@ -40,6 +52,26 @@ jobs:
 
       - name: Test
         run: dotnet test BankingApi.slnx -c Release --no-build --verbosity normal
+
+      - name: Publish BankingApi
+        run: dotnet publish BankingApi/BankingApi.csproj -c Release --no-restore --no-build -o publish/BankingApi
+
+      - name: Publish BankingWeb
+        run: dotnet publish BankingWeb/BankingWeb.csproj -c Release --no-restore --no-build -o publish/BankingWeb
+
+      - name: Upload BankingApi build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BankingApi-${{ github.sha }}
+          path: publish/BankingApi
+          retention-days: 14
+
+      - name: Upload BankingWeb build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BankingWeb-${{ github.sha }}
+          path: publish/BankingWeb
+          retention-days: 14
 
   docker:
     name: Build and push ${{ matrix.name }}
